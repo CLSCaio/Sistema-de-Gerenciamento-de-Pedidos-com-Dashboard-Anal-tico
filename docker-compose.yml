@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fastmeals
+      POSTGRES_PASSWORD: fastmeals
+      POSTGRES_DB: fastmeals
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fastmeals -d fastmeals"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://fastmeals:fastmeals@db:5432/fastmeals
+      JWT_ACCESS_SECRET: docker-access-secret
+      JWT_REFRESH_SECRET: docker-refresh-secret
+      PORT: "3001"
+      CORS_ORIGIN: http://localhost:3000
+      COOKIE_SECURE: "false"
+      SEED_PATH: /seed/data.json
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:3001
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
